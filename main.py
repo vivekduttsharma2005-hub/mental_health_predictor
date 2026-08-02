@@ -1,17 +1,26 @@
 import os
 import joblib
 import shap
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from typing import Literal
 from fastapi.middleware.cors import CORSMiddleware
+from sklearn.preprocessing import LabelEncoder
 from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()  # reads .env file locally; on Render, env vars are injected directly so this line just does nothing there
 
-model = joblib.load('Mental_Health_Model.pkl')
+# ---------------------------------------------------------
+# Always resolve paths relative to this file, not the CWD
+# the process happens to be launched from.
+# ---------------------------------------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+model = joblib.load(os.path.join(BASE_DIR, 'Mental_Health_Model.pkl'))
+
 top_countries = ['Other', 'India', 'USA', 'Canada', 'Australia', 'UK', 'Germany', 'Mexico', 'Turkey', 'France']
 
 app = FastAPI()
@@ -34,16 +43,15 @@ client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 # We build this ONCE at startup (not per-request) because
 # fitting/initializing an explainer is expensive.
 #
-# shap.Explainer(model.predict, background) works even when
-# `model` is a full sklearn Pipeline (preprocessing + regressor),
-# because it treats model.predict as a black-box function and
-# does NOT require raw numeric input like TreeExplainer does.
+# IMPORTANT: SHAP's default tabular masker calls np.isclose()
+# under the hood, which only works on numeric data. Several of
+# our features (Gender, Country, Academic_Level, etc.) are
+# strings, which caused:
+#   TypeError: unsupported operand type(s) for -: 'str' and 'str'
 #
-# background_df is a small reference sample used to estimate
-# each feature's baseline contribution. Ideally this should be
-# ~50-100 rows sampled from your actual training data (via
-# ML_Project.ipynb -> save a sample to a csv and load it here).
-# As a fallback/demo, we build one synthetic "typical" row.
+# Fix: label-encode all categorical columns into integers before
+# handing anything to SHAP, and wrap model.predict so it decodes
+# those integers back to strings before calling the real model.
 # ---------------------------------------------------------
 FEATURE_COLUMNS = [
     'Age', 'Gender', 'Country', 'Academic_Level', 'Most_Used_Platform',
@@ -51,22 +59,78 @@ FEATURE_COLUMNS = [
     'Physical_Activity_Hours', 'Sleep_Hours_Per_Night', 'Stress_Level', 'Grouped_country'
 ]
 
+CATEGORICAL_COLUMNS = [
+    'Gender', 'Country', 'Academic_Level', 'Most_Used_Platform',
+    'Purpose_Of_Use', 'Stress_Level', 'Grouped_country'
+]
+
 try:
     # Preferred: use a real sample of training data for the background set.
     # Export this once from your notebook:
-    #   df.sample(50).to_csv('shap_background.csv', index=False)
-    background_df = pd.read_csv('shap_background.csv')[FEATURE_COLUMNS]
+    # df.sample(50).to_csv('shap_background.csv', index=False)
+    background_df = pd.read_csv(os.path.join(BASE_DIR, 'shap_background.csv'))[FEATURE_COLUMNS]
 except FileNotFoundError:
     # Fallback: one plausible "average" row, duplicated a few times.
-    background_df = pd.DataFrame([{
-        'Age': 21, 'Gender': 'Male', 'Country': 'India', 'Academic_Level': 'Undergraduate',
-        'Most_Used_Platform': 'Instagram', 'Purpose_Of_Use': 'Entertainment',
-        'Avg_Daily_Usage_Hours': 4.0, 'Daily_Unlocks': 50, 'Study_Hours': 3.0,
-        'Physical_Activity_Hours': 1.0, 'Sleep_Hours_Per_Night': 7.0,
-        'Stress_Level': 'Medium', 'Grouped_country': 'India'
-    }] * 20)
+    # Includes a couple of varied rows so the label encoders below
+    # don't choke on a single-category column.
+    background_df = pd.DataFrame([
+        {
+            'Age': 21, 'Gender': 'Male', 'Country': 'India', 'Academic_Level': 'Undergraduate',
+            'Most_Used_Platform': 'Instagram', 'Purpose_Of_Use': 'Entertainment',
+            'Avg_Daily_Usage_Hours': 4.0, 'Daily_Unlocks': 50, 'Study_Hours': 3.0,
+            'Physical_Activity_Hours': 1.0, 'Sleep_Hours_Per_Night': 7.0,
+            'Stress_Level': 'Medium', 'Grouped_country': 'India'
+        },
+        {
+            'Age': 24, 'Gender': 'Female', 'Country': 'USA', 'Academic_Level': 'Graduate',
+            'Most_Used_Platform': 'YouTube', 'Purpose_Of_Use': 'Education',
+            'Avg_Daily_Usage_Hours': 2.5, 'Daily_Unlocks': 30, 'Study_Hours': 5.0,
+            'Physical_Activity_Hours': 2.0, 'Sleep_Hours_Per_Night': 8.0,
+            'Stress_Level': 'Low', 'Grouped_country': 'USA'
+        },
+        {
+            'Age': 19, 'Gender': 'Male', 'Country': 'Other', 'Academic_Level': 'High School',
+            'Most_Used_Platform': 'TikTok', 'Purpose_Of_Use': 'Networking',
+            'Avg_Daily_Usage_Hours': 6.0, 'Daily_Unlocks': 80, 'Study_Hours': 2.0,
+            'Physical_Activity_Hours': 0.5, 'Sleep_Hours_Per_Night': 6.0,
+            'Stress_Level': 'High', 'Grouped_country': 'Other'
+        },
+    ] * 10)
 
-explainer = shap.Explainer(model.predict, background_df)
+# Fit one LabelEncoder per categorical column on the background sample.
+# (These only need to know the set of categories that can show up.)
+encoders = {col: LabelEncoder().fit(background_df[col].astype(str)) for col in CATEGORICAL_COLUMNS}
+
+
+def encode_row(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert categorical string columns -> integer codes for SHAP."""
+    df = df.copy()
+    for col in CATEGORICAL_COLUMNS:
+        df[col] = encoders[col].transform(df[col].astype(str))
+    return df[FEATURE_COLUMNS]
+
+
+def decode_row(arr) -> pd.DataFrame:
+    """Convert integer codes from SHAP back into a real model input row."""
+    df = pd.DataFrame(np.asarray(arr), columns=FEATURE_COLUMNS)
+    for col in FEATURE_COLUMNS:
+        if col in CATEGORICAL_COLUMNS:
+            codes = df[col].round().astype(int).clip(
+                lower=0, upper=len(encoders[col].classes_) - 1
+            )
+            df[col] = encoders[col].inverse_transform(codes)
+        else:
+            df[col] = pd.to_numeric(df[col])
+    return df
+
+
+def predict_encoded(X):
+    """SHAP-facing predict function: takes numeric arrays, decodes, predicts."""
+    return model.predict(decode_row(X))
+
+
+background_encoded = encode_row(background_df)
+explainer = shap.Explainer(predict_encoded, background_encoded.values)
 
 
 # A first Pydantic Model
@@ -118,7 +182,7 @@ def build_input_row(data: StudentData) -> pd.DataFrame:
 
 @app.get('/')
 def greet():
-    return {'Welcome to Sheryians AI School Guys'}
+    return {"message": "Welcome to Sheryians AI School Guys"}
 
 
 @app.post('/predict', response_model=PredictionResponse)  # 6.77777
@@ -135,8 +199,11 @@ def explain(data: StudentData):
     # 1. Get the raw prediction
     prediction = float(model.predict(input_row)[0])
 
-    # 2. Compute SHAP values for this single prediction
-    shap_values = explainer(input_row)
+    # 2. Compute SHAP values for this single prediction.
+    #    Encode categoricals to numbers first, since SHAP's masker
+    #    can't do isclose() comparisons on strings.
+    input_encoded = encode_row(input_row).values
+    shap_values = explainer(input_encoded)
 
     # shap_values.values[0] -> array of per-feature contributions
     # shap_values.base_values[0] -> the "average" prediction before features are applied
@@ -144,17 +211,18 @@ def explain(data: StudentData):
 
     # 3. Sort by absolute impact, take top 3
     top_factors_raw = sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+
     top_factors = [
         {
             "feature": feature,
-            "value": input_row[feature].iloc[0],
+            "value": input_row[feature].iloc[0],  # original (human-readable) value, not the encoded one
             "impact": round(float(impact), 3),
             "direction": "increased" if impact > 0 else "decreased"
         }
         for feature, impact in top_factors_raw
     ]
 
-    # 4. Turn the SHAP numbers into a plain-language explanation via Claude
+    # 4. Turn the SHAP numbers into a plain-language explanation via Groq
     factors_text = "\n".join(
         f"- {f['feature']} = {f['value']} ({f['direction']} the score by {abs(f['impact']):.2f})"
         for f in top_factors
@@ -172,6 +240,7 @@ Write a warm, plain-language explanation (2-3 sentences, no jargon, no SHAP/tech
         max_tokens=200,
         messages=[{"role": "user", "content": prompt}]
     )
+
     explanation_text = completion.choices[0].message.content
 
     return ExplanationResponse(
