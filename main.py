@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 from typing import Literal
 from fastapi.middleware.cors import CORSMiddleware
 from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()  # reads .env file locally; on Render, env vars are injected directly so this line just does nothing there
 
 model = joblib.load('Mental_Health_Model.pkl')
 top_countries = ['Other', 'India', 'USA', 'Canada', 'Australia', 'UK', 'Germany', 'Mexico', 'Turkey', 'France']

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mansik Santulan — Mental Health Score</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="scene">
+  <div class="scene-glow" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">Mansik&nbsp;Santulan</span>
+    </div>
+    <p class="brand-tag">a quiet read on your daily balance</p>
+  </header>
+
+  <main class="layout">
+
+    <!-- LEFT: FORM -->
+    <section class="panel form-panel" aria-labelledby="form-heading">
+      <h1 id="form-heading">Tell us about your day</h1>
+      <p class="panel-lede">Twelve questions. No right answers — just your routine, as it actually is.</p>
+
+      <form id="predict-form" novalidate>
+
+        <div class="field-grid">
+
+          <div class="field">
+            <label for="age">Age</label>
+            <input type="number" id="age" name="age" min="10" max="100" placeholder="21" required />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="gender">Gender</label>
+            <select id="gender" name="gender" required>
+              <option value="" disabled selected>Choose</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="country">Country</label>
+            <input type="text" id="country" name="country" placeholder="India" required />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="academic_level">Academic level</label>
+            <select id="academic_level" name="academic_level" required>
+              <option value="" disabled selected>Choose</option>
+              <option value="High School">High School</option>
+              <option value="Undergraduate">Undergraduate</option>
+              <option value="Graduate">Graduate</option>
+            </select>
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="most_used_platform">Most-used platform</label>
+            <select id="most_used_platform" name="most_used_platform" required>
+              <option value="" disabled selected>Choose</option>
+              <option>Instagram</option>
+              <option>YouTube</option>
+              <option>WhatsApp</option>
+              <option>TikTok</option>
+              <option>Snapchat</option>
+              <option>Facebook</option>
+              <option>Twitter</option>
+              <option>LinkedIn</option>
+              <option>WeChat</option>
+              <option>LINE</option>
+              <option>KakaoTalk</option>
+              <option>VKontakte</option>
+            </select>
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="purpose_of_use">Main purpose</label>
+            <select id="purpose_of_use" name="purpose_of_use" required>
+              <option value="" disabled selected>Choose</option>
+              <option>Entertainment</option>
+              <option>Education</option>
+              <option>Networking</option>
+              <option>News</option>
+            </select>
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="avg_daily_usage_hours">Daily screen time <span class="unit">hrs</span></label>
+            <input type="number" id="avg_daily_usage_hours" name="avg_daily_usage_hours" min="0" max="24" step="0.1" placeholder="4.5" required />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="daily_unlocks">Phone unlocks <span class="unit">per day</span></label>
+            <input type="number" id="daily_unlocks" name="daily_unlocks" min="0" placeholder="60" required />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="study_hours">Study time <span class="unit">hrs</span></label>
+            <input type="number" id="study_hours" name="study_hours" min="0" max="24" step="0.1" placeholder="3" required />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="physical_activity_hours">Physical activity <span class="unit">hrs</span></label>
+            <input type="number" id="physical_activity_hours" name="physical_activity_hours" min="0" max="24" step="0.1" placeholder="1" required />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field">
+            <label for="sleep_hours_per_night">Sleep <span class="unit">hrs / night</span></label>
+            <input type="number" id="sleep_hours_per_night" name="sleep_hours_per_night" min="0" max="24" step="0.1" placeholder="7" required />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+          <div class="field field-wide">
+            <label id="stress-label">Stress level</label>
+            <div class="seg-group" id="stress_level_group" role="radiogroup" aria-labelledby="stress-label">
+              <button type="button" class="seg-btn" data-value="Low">Low</button>
+              <button type="button" class="seg-btn" data-value="Medium">Medium</button>
+              <button type="button" class="seg-btn" data-value="High">High</button>
+              <button type="button" class="seg-btn" data-value="Very High">Very High</button>
+            </div>
+            <input type="hidden" id="stress_level" name="stress_level" />
+            <span class="error-msg" role="alert"></span>
+          </div>
+
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" id="submit-btn" class="btn-primary">
+            <span class="btn-label">Read my balance</span>
+            <span class="btn-spinner" aria-hidden="true"></span>
+          </button>
+          <button type="button" id="reset-btn" class="btn-ghost">Clear</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- RIGHT: RESULT -->
+    <section class="panel result-panel" aria-live="polite">
+
+      <div class="state" id="state-idle">
+        <div class="idle-arc" aria-hidden="true">
+          <svg viewBox="0 0 240 140">
+            <path d="M 20 130 A 100 100 0 0 1 220 130" class="idle-arc-path" />
+          </svg>
+        </div>
+        <p class="idle-copy">Your score will settle here, once we hear about your day.</p>
+      </div>
+
+      <div class="state" id="state-loading" hidden>
+        <div class="pulse-ring" aria-hidden="true"></div>
+        <p class="loading-copy">Reading the signal…</p>
+      </div>
+
+      <div class="state" id="state-result" hidden>
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 240 160" class="gauge">
+            <g class="gauge-ticks"></g>
+            <path d="M 20 140 A 100 100 0 0 1 220 140" class="gauge-track" />
+            <path d="M 20 140 A 100 100 0 0 1 220 140" class="gauge-fill" id="gauge-fill" />
+          </svg>
+          <div class="gauge-readout">
+            <span class="score-number" id="score-number">—</span>
+            <span class="score-outof">/ 10</span>
+          </div>
+        </div>
+
+        <p class="score-band" id="score-band"></p>
+        <p class="score-context" id="score-context"></p>
+
+        <button type="button" id="explain-btn" class="btn-secondary">
+          <span class="btn-label">Why this score?</span>
+        </button>
+
+        <div class="explain-block" id="explain-block" hidden>
+          <div class="explain-loading" id="explain-loading" hidden>
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </div>
+          <div class="explain-content" id="explain-content" hidden>
+            <p class="explain-text" id="explain-text"></p>
+            <ul class="factor-list" id="factor-list"></ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="state" id="state-error" hidden>
+        <p class="error-label" id="error-label"></p>
+        <p class="error-copy" id="error-copy"></p>
+        <button type="button" id="error-retry-btn" class="btn-ghost">Try again</button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Not a diagnosis. Just a mirror — talk to someone if things feel heavy.</p>
+  </footer>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
