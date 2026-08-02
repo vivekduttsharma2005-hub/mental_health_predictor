@@ -2,7 +2,7 @@
   "use strict";
 
   // Change this to your deployed Render URL
-  const API_BASE = "https://mansik-santulan-score.onrender.com";
+  const API_BASE = "https://mental-health-predictor-my1t.onrender.com";
 
   const form = document.getElementById("predict-form");
   const submitBtn = document.getElementById("submit-btn");
